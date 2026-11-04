@@ -593,14 +593,14 @@
       <div class="modal-title">⚙️ 薪资与工作制设置</div>
       
       <div class="form-group">
-        <label>税前总年包 (RMB 万元)</label>
-        <input type="number" id="inputAnnualSalary" class="form-input" placeholder="例如: 50" step="0.5" value="50">
+        <label>税后月薪 (RMB 元) ⚠️请务必输入税后到手金额</label>
+        <input type="number" id="inputMonthlySalary" class="form-input" placeholder="例如: 20000" step="100" value="20000">
       </div>
 
       <div class="form-row">
         <div class="form-group" style="flex: 1;">
-          <label>全年实际工作天数 (天)</label>
-          <input type="number" id="inputWorkDays" class="form-input" value="250" step="1">
+          <label>每月计薪工作天数 (天)</label>
+          <input type="number" id="inputWorkDays" class="form-input" value="21.75" step="0.01">
         </div>
         <div class="form-group" style="flex: 1;">
           <label>宠物造型</label>
@@ -646,8 +646,8 @@
 <script>
   // 默认配置
   const DEFAULT_CONFIG = {
-    annualPackageWan: 50, // 年包 50 万元
-    workDaysPerYear: 250, // 每年工作日天数
+    monthlySalaryRmb: 20000, // 月薪 20000 元
+    workDaysPerMonth: 21.75, // 每月工作日天数
     startTime: "09:00",
     endTime: "18:00",
     lunchStart: "12:00",
@@ -670,11 +670,19 @@
   ];
 
   // 从 LocalStorage 加载配置
-  function loadConfig() {
+    function loadConfig() {
     const saved = localStorage.getItem("WORK_ENCOURAGER_CFG");
     if (saved) {
       try {
-        config = { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        // 兼容老版本处理
+        if (parsed.annualPackageWan && !parsed.monthlySalaryRmb) {
+            parsed.monthlySalaryRmb = (parsed.annualPackageWan * 10000) / 12;
+        }
+        if (parsed.workDaysPerYear && !parsed.workDaysPerMonth) {
+            parsed.workDaysPerMonth = parsed.workDaysPerYear / 12;
+        }
+        config = { ...DEFAULT_CONFIG, ...parsed };
       } catch (e) {
         console.error(e);
       }
@@ -693,8 +701,7 @@
 
   // 计算每秒收益和每日总收益
   function calculateRates() {
-    const annualRmb = config.annualPackageWan * 10000;
-    const dailyRmb = annualRmb / config.workDaysPerYear;
+    const dailyRmb = (config.monthlySalaryRmb || 20000) / (config.workDaysPerMonth || 21.75);
 
     const startSec = timeStringToSeconds(config.startTime);
     const endSec = timeStringToSeconds(config.endTime);
@@ -826,7 +833,7 @@
   function spawnCoin(x, y) {
     const coin = document.createElement("div");
     coin.className = "floating-coin";
-    coin.textContent = "+¥" + (config.annualPackageWan * 10000 / (config.workDaysPerYear * 8 * 3600)).toFixed(2);
+    coin.textContent = "+¥" + (config.annualPackageWan * 10000 / (config.workDaysPerMonth * 8 * 3600)).toFixed(2);
     coin.style.left = (x - 20) + "px";
     coin.style.top = (y - 20) + "px";
     document.body.appendChild(coin);
@@ -851,8 +858,8 @@
 
   // 设置模态框
   function openSettingsModal() {
-    document.getElementById("inputAnnualSalary").value = config.annualPackageWan;
-    document.getElementById("inputWorkDays").value = config.workDaysPerYear;
+    document.getElementById("inputMonthlySalary").value = config.monthlySalaryRmb;
+    document.getElementById("inputWorkDays").value = config.workDaysPerMonth;
     document.getElementById("inputStartTime").value = config.startTime;
     document.getElementById("inputEndTime").value = config.endTime;
     document.getElementById("inputLunchStart").value = config.lunchStart;
@@ -866,8 +873,8 @@
   }
 
   function saveSettings() {
-    config.annualPackageWan = parseFloat(document.getElementById("inputAnnualSalary").value) || 50;
-    config.workDaysPerYear = parseInt(document.getElementById("inputWorkDays").value) || 250;
+    config.monthlySalaryRmb = parseFloat(document.getElementById("inputMonthlySalary").value) || 20000;
+    config.workDaysPerMonth = parseFloat(document.getElementById("inputWorkDays").value) || 21.75;
     config.startTime = document.getElementById("inputStartTime").value || "09:00";
     config.endTime = document.getElementById("inputEndTime").value || "18:00";
     config.lunchStart = document.getElementById("inputLunchStart").value || "12:00";
