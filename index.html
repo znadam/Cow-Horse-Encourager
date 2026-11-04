@@ -833,7 +833,7 @@
   function spawnCoin(x, y) {
     const coin = document.createElement("div");
     coin.className = "floating-coin";
-    coin.textContent = "+¥" + (config.annualPackageWan * 10000 / (config.workDaysPerMonth * 8 * 3600)).toFixed(2);
+    coin.textContent = "+¥" + ((config.monthlySalaryRmb || 20000) / ((config.workDaysPerMonth || 21.75) * 8 * 3600)).toFixed(2);
     coin.style.left = (x - 20) + "px";
     coin.style.top = (y - 20) + "px";
     document.body.appendChild(coin);
