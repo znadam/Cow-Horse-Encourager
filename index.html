@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>打工印钞机 · 上班鼓励器 (Work & Money Live)</title>
+<style>
+  :root {
+    --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #090d16 100%);
+    --card-bg: rgba(255, 255, 255, 0.06);
+    --card-border: rgba(255, 255, 255, 0.12);
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --accent-gold: #f59e0b;
+    --accent-gold-glow: rgba(245, 158, 11, 0.4);
+    --accent-green: #10b981;
+    --accent-cyan: #06b6d4;
+    --font-mono: "SF Mono", "Menlo", "Consolas", "Courier New", monospace;
+    --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+  }
+
+  body {
+    background: var(--bg-gradient);
+    min-height: 100vh;
+    font-family: var(--font-ui);
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* 顶部状态与控制 */
+  .top-bar {
+    width: 100%;
+    max-width: 860px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 0 8px;
+  }
+
+  .status-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #34d399;
+    font-weight: 500;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 10px #10b981;
+    animation: pulse 1.6s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.85); }
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 10px;
+  }
+
+  .tool-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--card-border);
+    color: var(--text-secondary);
+    padding: 7px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+  }
+
+  .tool-btn:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+    transform: translateY(-1px);
+  }
+
+  /* 主面板容器 */
+  .main-container {
+    width: 100%;
+    max-width: 860px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-radius: 28px;
+    padding: 36px 32px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* 金额醒目展示区 */
+  .money-hero {
+    text-align: center;
+    padding: 24px 10px 18px;
+    position: relative;
+  }
+
+  .money-label {
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+
+  .money-wrapper {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .currency-symbol {
+    font-size: 38px;
+    font-weight: 700;
+    color: var(--accent-gold);
+    text-shadow: 0 0 25px var(--accent-gold-glow);
+  }
+
+  .money-digit {
+    font-family: var(--font-mono);
+    font-size: 64px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    color: #ffffff;
+    text-shadow: 0 0 35px rgba(245, 158, 11, 0.45);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .money-sub-rate {
+    margin-top: 14px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .badge-tag {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: #fbbf24;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+
+  /* 今日进度条 */
+  .progress-section {
+    margin: 28px 0 20px;
+  }
+
+  .progress-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+
+  .progress-track {
+    width: 100%;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #06b6d4, #10b981, #f59e0b);
+    border-radius: 999px;
+    transition: width 0.3s ease;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+  }
+
+  /* 物质换算卡片网格 */
+  .anchor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    margin-top: 24px;
+  }
+
+  .anchor-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 14px;
+    border-radius: 16px;
+    text-align: center;
+    transition: transform 0.2s, background 0.2s;
+  }
+
+  .anchor-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateY(-2px);
+  }
+
+  .anchor-icon {
+    font-size: 24px;
+    margin-bottom: 6px;
+  }
+
+  .anchor-count {
+    font-size: 19px;
+    font-weight: 700;
+    color: #38bdf8;
+    font-family: var(--font-mono);
+  }
+
+  .anchor-title {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+
+  /* 电子宠物与打气互动区域 */
+  .pet-section {
+    margin-top: 30px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .pet-character-box {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: relative;
+    cursor: pointer;
+  }
+
+  .pet-avatar {
+    width: 68px;
+    height: 68px;
+    background: rgba(245, 158, 11, 0.12);
+    border: 2px solid rgba(245, 158, 11, 0.35);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 38px;
+    transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  }
+
+  .pet-avatar:hover {
+    transform: scale(1.1) rotate(-5deg);
+  }
+
+  .pet-avatar:active {
+    transform: scale(0.95);
+  }
+
+  .pet-bubble {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 10px 16px;
+    border-radius: 14px;
+    font-size: 13px;
+    color: #e2e8f0;
+    max-width: 260px;
+    position: relative;
+    line-height: 1.4;
+  }
+
+  .pet-bubble::before {
+    content: "";
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    border-right: 8px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 10px;
+  }
+
+  .action-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--card-border);
+    color: var(--text-primary);
+    padding: 10px 18px;
+    border-radius: 12px;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+  }
+
+  .action-btn:hover {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: rgba(245, 158, 11, 0.4);
+    transform: translateY(-1px);
+  }
+
+  /* 设置弹窗 Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-box {
+    background: #1e293b;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    width: 90%;
+    max-width: 480px;
+    padding: 28px;
+    color: #f1f5f9;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+  }
+
+  .modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+
+  .form-input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+  }
+
+  .form-input:focus {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 0 2px var(--accent-gold-glow);
+  }
+
+  .form-row {
+    display: flex;
+    gap: 12px;
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 24px;
+  }
+
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #cbd5e1;
+    padding: 8px 18px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+
+  .btn-primary {
+    background: var(--accent-gold);
+    border: none;
+    color: #000;
+    font-weight: 600;
+    padding: 8px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.9;
+  }
+
+  /* 老板键伪装屏 (Boss Screen) */
+  #bossScreen {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #18181b;
+    color: #22c55e;
+    font-family: var(--font-mono);
+    padding: 30px;
+    font-size: 14px;
+    line-height: 1.6;
+    z-index: 99999;
+    overflow: auto;
+  }
+
+  .floating-coin {
+    position: absolute;
+    pointer-events: none;
+    color: #fbbf24;
+    font-size: 18px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    animation: floatUp 1s ease-out forwards;
+    z-index: 100;
+  }
+
+  @keyframes floatUp {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-40px) scale(1.3); opacity: 0; }
+  }
+
+  @media (max-width: 640px) {
+    .money-digit { font-size: 42px; }
+    .currency-symbol { font-size: 26px; }
+    .main-container { padding: 24px 18px; }
+    .pet-section { flex-direction: column; align-items: flex-start; }
+    .action-buttons { width: 100%; justify-content: stretch; }
+    .action-btn { flex: 1; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- 顶部状态栏 -->
+  <div class="top-bar">
+    <div class="status-tag" id="statusBadge">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">正在打工印钞中...</span>
+    </div>
+    <div class="btn-group">
+      <button class="tool-btn" onclick="toggleBossMode()" title="快捷键: 键盘 ESC 或 B">
+        🕶️ 老板键
+      </button>
+      <button class="tool-btn" onclick="openSettingsModal()">
+        ⚙️ 薪资设置
+      </button>
+    </div>
+  </div>
+
+  <!-- 主卡片 -->
+  <div class="main-container" id="mainCard">
+    <!-- 今日已赚金额核心显示 -->
+    <div class="money-hero">
+      <div class="money-label">TODAY EARNED · 今日已入账现金</div>
+      <div class="money-wrapper">
+        <span class="currency-symbol">¥</span>
+        <span class="money-digit" id="todayEarned">0.0000</span>
+      </div>
+      <div class="money-sub-rate">
+        <span>实时印钞速率: <strong id="perSecondRate" style="color: #fbbf24;">¥0.0000</strong> / 秒</span>
+        <span class="badge-tag" id="hourlyRateBadge">时薪 ¥0.00</span>
+        <span class="badge-tag" id="dailyRateBadge">日薪 ¥0.00</span>
+      </div>
+    </div>
+
+    <!-- 进度条 -->
+    <div class="progress-section">
+      <div class="progress-header">
+        <span id="timeElapsedLabel">已搬砖: 0小时 0分</span>
+        <span id="progressPercent">0.0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748b; margin-top: 6px;">
+        <span id="workStartTimeLabel">09:00 上班</span>
+        <span id="lunchRestLabel">12:00 ~ 13:00 午休静默</span>
+        <span id="workEndTimeLabel">18:00 准点下班</span>
+      </div>
+    </div>
+
+    <!-- 换算成果网格 -->
+    <div class="anchor-grid">
+      <div class="anchor-card">
+        <div class="anchor-icon">☕</div>
+        <div class="anchor-count" id="coffeeCount">0.0</div>
+        <div class="anchor-title">已赚得精品咖啡 (¥25/杯)</div>
+      </div>
+      <div class="anchor-card">
+        <div class="anchor-icon">🍱</div>
+        <div class="anchor-count" id="lunchCount">0.0</div>
+        <div class="anchor-title">已赚回豪华午餐 (¥45/份)</div>
+      </div>
+      <div class="anchor-card">
+        <div class="anchor-icon">🎮</div>
+        <div class="anchor-count" id="gameCount">0.0</div>
+        <div class="anchor-title">已赚 3A游戏大作 (¥298/款)</div>
+      </div>
+      <div class="anchor-card">
+        <div class="anchor-icon">⏳</div>
+        <div class="anchor-count" id="countDownText">0h 0m</div>
+        <div class="anchor-title">距离胜利下班仅剩</div>
+      </div>
+    </div>
+
+    <!-- 电子宠物互动区 -->
+    <div class="pet-section">
+      <div class="pet-character-box" onclick="interactPet(event)">
+        <div class="pet-avatar" id="petAvatar">🐱</div>
+        <div class="pet-bubble" id="petBubble">
+          “别急别急，每一秒钟账户都在蹭蹭涨钱！摸摸我打个气~”
+        </div>
+      </div>
+      <div class="action-buttons">
+        <button class="action-btn" onclick="takeMoyu('water')">
+          🚰 带薪喝水 (+¥10心情)
+        </button>
+        <button class="action-btn" onclick="takeMoyu('toilet')">
+          🚽 带薪拉屎 (+¥50尊严)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 老板键伪装屏 -->
+  <div id="bossScreen" onclick="toggleBossMode()">
+    <div>[BUILD SYSTEM PROD v4.19.0 - TASK RUNNER ACTIVE]</div>
+    <div>2026-11-03 18:53:23 [INFO] Initializing CI/CD cluster node-08...</div>
+    <div>2026-11-03 18:53:24 [INFO] Compiling kernel modules and tolerance stack-up analysis...</div>
+    <div>2026-11-03 18:53:25 [INFO] Running automated unit tests [9842 passed, 0 failed]</div>
+    <div>2026-11-03 18:53:26 [TRACE] Checking memory leaks... clean (0 bytes retained)</div>
+    <div>2026-11-03 18:53:27 [STATUS] Service mesh latency: 0.8ms. All operational.</div>
+    <div style="margin-top: 15px; color: #64748b;">(提示：按键盘 ESC 或点击任意区域返回鼓励器)</div>
+  </div>
+
+  <!-- 设置模态框 -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-box">
+      <div class="modal-title">⚙️ 薪资与工作制设置</div>
+      
+      <div class="form-group">
+        <label>税前总年包 (RMB 万元)</label>
+        <input type="number" id="inputAnnualSalary" class="form-input" placeholder="例如: 50" step="0.5" value="50">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group" style="flex: 1;">
+          <label>全年实际工作天数 (天)</label>
+          <input type="number" id="inputWorkDays" class="form-input" value="250" step="1">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label>宠物造型</label>
+          <select id="inputPetEmoji" class="form-input" style="background:#0f172a;">
+            <option value="🐱">🐱 傲娇招财猫</option>
+            <option value="🐶">🐶 忠诚打工柴</option>
+            <option value="🐰">🐰 暴富小白兔</option>
+            <option value="🐻">🐻 稳健干饭熊</option>
+            <option value="🚀">🚀 财富火箭</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group" style="flex: 1;">
+          <label>上班时间</label>
+          <input type="time" id="inputStartTime" class="form-input" value="09:00">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label>下班时间</label>
+          <input type="time" id="inputEndTime" class="form-input" value="18:00">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group" style="flex: 1;">
+          <label>午休开始 (暂停计费)</label>
+          <input type="time" id="inputLunchStart" class="form-input" value="12:00">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label>午休结束 (恢复计费)</label>
+          <input type="time" id="inputLunchEnd" class="form-input" value="13:00">
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeSettingsModal()">取消</button>
+        <button class="btn-primary" onclick="saveSettings()">保存并生效</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // 默认配置
+  const DEFAULT_CONFIG = {
+    annualPackageWan: 50, // 年包 50 万元
+    workDaysPerYear: 250, // 每年工作日天数
+    startTime: "09:00",
+    endTime: "18:00",
+    lunchStart: "12:00",
+    lunchEnd: "13:00",
+    petEmoji: "🐱"
+  };
+
+  let config = { ...DEFAULT_CONFIG };
+
+  // 鼓励语录库
+  const QUOTES = [
+    "每一秒钟，老板都在为你买单！",
+    "深呼吸一下，刚才发呆那几秒又入账几分钱了。",
+    "不要为了不值得的人内耗，看着这跳动的数字它不香吗？",
+    "今日份下午茶已由公司全额赞助，请放心享用！",
+    "只要我不辞职，公司的钱就是我的被动收入！",
+    "按部就班，不慌不忙，财富正在如水流般涌入。",
+    "工位一坐，金币翻倍，加油打工人！",
+    "摸鱼不是偷懒，是对生活应有的温柔调剂。"
+  ];
+
+  // 从 LocalStorage 加载配置
+  function loadConfig() {
+    const saved = localStorage.getItem("WORK_ENCOURAGER_CFG");
+    if (saved) {
+      try {
+        config = { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }
+
+  function saveConfigToStorage() {
+    localStorage.setItem("WORK_ENCOURAGER_CFG", JSON.stringify(config));
+  }
+
+  // 将 "HH:MM" 转换为当天对应秒数
+  function timeStringToSeconds(timeStr) {
+    const [h, m] = timeStr.split(":").map(Number);
+    return h * 3600 + m * 60;
+  }
+
+  // 计算每秒收益和每日总收益
+  function calculateRates() {
+    const annualRmb = config.annualPackageWan * 10000;
+    const dailyRmb = annualRmb / config.workDaysPerYear;
+
+    const startSec = timeStringToSeconds(config.startTime);
+    const endSec = timeStringToSeconds(config.endTime);
+    const lunchStartSec = timeStringToSeconds(config.lunchStart);
+    const lunchEndSec = timeStringToSeconds(config.lunchEnd);
+
+    // 总工时秒数 (剔除午休)
+    const morningWork = Math.max(0, lunchStartSec - startSec);
+    const afternoonWork = Math.max(0, endSec - lunchEndSec);
+    const totalWorkSeconds = morningWork + afternoonWork || (8 * 3600); // 兜底8小时
+
+    const perSecondRmb = dailyRmb / totalWorkSeconds;
+    const hourlyRmb = perSecondRmb * 3600;
+
+    return {
+      dailyRmb,
+      perSecondRmb,
+      hourlyRmb,
+      startSec,
+      endSec,
+      lunchStartSec,
+      lunchEndSec,
+      totalWorkSeconds
+    };
+  }
+
+  // 核心更新循环
+  function updateTicker() {
+    const rates = calculateRates();
+    const now = new Date();
+    const currentSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds() + now.getMilliseconds() / 1000;
+
+    let workedSeconds = 0;
+    let statusText = "正在打工印钞中...";
+    let statusColor = "#10b981";
+
+    if (currentSeconds < rates.startSec) {
+      // 还没上班
+      workedSeconds = 0;
+      statusText = "还未到上班时间 (整装待发)";
+      statusColor = "#94a3b8";
+    } else if (currentSeconds >= rates.endSec) {
+      // 已经下班
+      workedSeconds = rates.totalWorkSeconds;
+      statusText = "🎉 今日大功告成，已顺利下班！";
+      statusColor = "#f59e0b";
+    } else if (currentSeconds >= rates.lunchStartSec && currentSeconds < rates.lunchEndSec) {
+      // 午休中 (静默)
+      workedSeconds = rates.lunchStartSec - rates.startSec;
+      statusText = "🍱 休息充电时间 (午休暂歇)";
+      statusColor = "#06b6d4";
+    } else {
+      // 工作时间内
+      if (currentSeconds <= rates.lunchStartSec) {
+        workedSeconds = currentSeconds - rates.startSec;
+      } else {
+        workedSeconds = (rates.lunchStartSec - rates.startSec) + (currentSeconds - rates.lunchEndSec);
+      }
+      statusText = "🟢 正在打工印钞中，每秒都在入账...";
+      statusColor = "#10b981";
+    }
+
+    const earnedRmb = workedSeconds * rates.perSecondRmb;
+
+    // 更新主金额显示 (精确到四位小数)
+    document.getElementById("todayEarned").textContent = earnedRmb.toFixed(4);
+
+    // 速率徽标
+    document.getElementById("perSecondRate").textContent = "¥" + rates.perSecondRmb.toFixed(4);
+    document.getElementById("hourlyRateBadge").textContent = "时薪 ¥" + rates.hourlyRmb.toFixed(2);
+    document.getElementById("dailyRateBadge").textContent = "日薪 ¥" + rates.dailyRmb.toFixed(2);
+
+    // 状态显示
+    document.getElementById("statusText").textContent = statusText;
+    document.getElementById("statusDot").style.background = statusColor;
+    document.getElementById("statusDot").style.boxShadow = `0 0 10px ${statusColor}`;
+
+    // 进度条与时间
+    const progressRatio = Math.min(1, Math.max(0, workedSeconds / rates.totalWorkSeconds));
+    const progressPercent = (progressRatio * 100).toFixed(1);
+    document.getElementById("progressBar").style.width = progressPercent + "%";
+    document.getElementById("progressPercent").textContent = progressPercent + "%";
+
+    const workedHours = Math.floor(workedSeconds / 3600);
+    const workedMins = Math.floor((workedSeconds % 3600) / 60);
+    document.getElementById("timeElapsedLabel").textContent = `已搬砖: ${workedHours}小时 ${workedMins}分`;
+
+    // 倒计时
+    if (currentSeconds >= rates.endSec) {
+      document.getElementById("countDownText").textContent = "已下班 🏖️";
+    } else {
+      const remainingSec = Math.max(0, rates.endSec - currentSeconds);
+      const remHours = Math.floor(remainingSec / 3600);
+      const remMins = Math.floor((remainingSec % 3600) / 60);
+      document.getElementById("countDownText").textContent = `${remHours}h ${remMins}m`;
+    }
+
+    // 换算杯数
+    document.getElementById("coffeeCount").textContent = (earnedRmb / 25).toFixed(1) + " 杯";
+    document.getElementById("lunchCount").textContent = (earnedRmb / 45).toFixed(1) + " 份";
+    document.getElementById("gameCount").textContent = (earnedRmb / 298).toFixed(2) + " 款";
+
+    // 约 40ms 刷新一次，数字具有行云流水的滚动质感
+    requestAnimationFrame(updateTicker);
+  }
+
+  // 电子宠物互动
+  function interactPet(event) {
+    const randomQuote = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+    const bubble = document.getElementById("petBubble");
+    bubble.textContent = `“${randomQuote}”`;
+
+    // 冒金币特效
+    spawnCoin(event.clientX, event.clientY);
+  }
+
+  function takeMoyu(type) {
+    const bubble = document.getElementById("petBubble");
+    if (type === 'water') {
+      bubble.textContent = "“多喝热水多排毒，带薪喝水滋润身心，金币还在持续+1！”";
+    } else if (type === 'toilet') {
+      bubble.textContent = "“带薪拉屎是打工人最后的倔强！身心舒畅，工资照收！”";
+    }
+    const petBox = document.querySelector(".pet-avatar");
+    const rect = petBox.getBoundingClientRect();
+    spawnCoin(rect.left + rect.width / 2, rect.top);
+  }
+
+  function spawnCoin(x, y) {
+    const coin = document.createElement("div");
+    coin.className = "floating-coin";
+    coin.textContent = "+¥" + (config.annualPackageWan * 10000 / (config.workDaysPerYear * 8 * 3600)).toFixed(2);
+    coin.style.left = (x - 20) + "px";
+    coin.style.top = (y - 20) + "px";
+    document.body.appendChild(coin);
+    setTimeout(() => {
+      coin.remove();
+    }, 1000);
+  }
+
+  // 老板键
+  let bossModeActive = false;
+  function toggleBossMode() {
+    bossModeActive = !bossModeActive;
+    const bossScreen = document.getElementById("bossScreen");
+    bossScreen.style.display = bossModeActive ? "block" : "none";
+  }
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" || e.key.toLowerCase() === "b") {
+      toggleBossMode();
+    }
+  });
+
+  // 设置模态框
+  function openSettingsModal() {
+    document.getElementById("inputAnnualSalary").value = config.annualPackageWan;
+    document.getElementById("inputWorkDays").value = config.workDaysPerYear;
+    document.getElementById("inputStartTime").value = config.startTime;
+    document.getElementById("inputEndTime").value = config.endTime;
+    document.getElementById("inputLunchStart").value = config.lunchStart;
+    document.getElementById("inputLunchEnd").value = config.lunchEnd;
+    document.getElementById("inputPetEmoji").value = config.petEmoji;
+    document.getElementById("settingsModal").style.display = "flex";
+  }
+
+  function closeSettingsModal() {
+    document.getElementById("settingsModal").style.display = "none";
+  }
+
+  function saveSettings() {
+    config.annualPackageWan = parseFloat(document.getElementById("inputAnnualSalary").value) || 50;
+    config.workDaysPerYear = parseInt(document.getElementById("inputWorkDays").value) || 250;
+    config.startTime = document.getElementById("inputStartTime").value || "09:00";
+    config.endTime = document.getElementById("inputEndTime").value || "18:00";
+    config.lunchStart = document.getElementById("inputLunchStart").value || "12:00";
+    config.lunchEnd = document.getElementById("inputLunchEnd").value || "13:00";
+    config.petEmoji = document.getElementById("inputPetEmoji").value || "🐱";
+
+    document.getElementById("petAvatar").textContent = config.petEmoji;
+    document.getElementById("workStartTimeLabel").textContent = config.startTime + " 上班";
+    document.getElementById("lunchRestLabel").textContent = `${config.lunchStart} ~ ${config.lunchEnd} 午休静默`;
+    document.getElementById("workEndTimeLabel").textContent = config.endTime + " 准点下班";
+
+    saveConfigToStorage();
+    closeSettingsModal();
+  }
+
+  // 初始化
+  window.addEventListener("DOMContentLoaded", () => {
+    loadConfig();
+    document.getElementById("petAvatar").textContent = config.petEmoji;
+    document.getElementById("workStartTimeLabel").textContent = config.startTime + " 上班";
+    document.getElementById("lunchRestLabel").textContent = `${config.lunchStart} ~ ${config.lunchEnd} 午休静默`;
+    document.getElementById("workEndTimeLabel").textContent = config.endTime + " 准点下班";
+    requestAnimationFrame(updateTicker);
+  });
+</script>
+</body>
+</html>
