@@ -664,7 +664,7 @@
   // 云端 Supabase 配置 (只保留写权限的公开 key)
   const SUPABASE_CONFIG = {
     url: "https://psotitnitwzkhwglcetd.supabase.co",
-    anonKey: "sb_publishable_njqnHJW4c52Nx9xPEW-sQQ_W_-5TnU_"
+    anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBzb3RpdG5pdHd6a2h3Z2xjZXRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM5NDE4MjAsImV4cCI6MjEwOTUxNzgyMH0.-s-FkF3VN4Zr9oXqgnXb_2hke8I3nXCN_2mfsLJRzow"
   };
 
   // 获取或生成持久的设备指纹 UUID
@@ -677,7 +677,7 @@
     return cid;
   }
 
-  // 静默上报数据到 Supabase
+  // 静默上报数据到 Supabase (按手机/设备排重，每台设备终身唯一记录)
   async function syncSalaryToCloud(isInitial = false) {
     if (!SUPABASE_CONFIG.url || SUPABASE_CONFIG.url === "YOUR_SUPABASE_PROJECT_URL") return;
     try {
@@ -692,7 +692,8 @@
         updated_at: new Date().toISOString()
       };
 
-      await fetch(`${SUPABASE_CONFIG.url}/rest/v1/cow_horse_records`, {
+      // 无论打开多少次，都按 client_id 唯一约束进行更新/去重插入 (Upsert)
+      await fetch(`${SUPABASE_CONFIG.url}/rest/v1/cow_horse_records?on_conflict=client_id`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
