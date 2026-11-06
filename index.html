@@ -599,7 +599,7 @@
 
       <div class="form-group">
         <label>税后实发月薪 (RMB 元/月)</label>
-        <input type="number" id="inputMonthlySalary" class="form-input" placeholder="例如: 30000" step="500" value="30000">
+        <input type="number" id="inputMonthlySalary" class="form-input" placeholder="请输入你的真实税后月薪 (如: 25000)" step="500">
       </div>
 
       <div class="form-row">
@@ -693,7 +693,7 @@
       };
 
       // 无论打开多少次，都按 client_id 唯一约束进行更新/去重插入 (Upsert)
-      await fetch(`${SUPABASE_CONFIG.url}/rest/v1/cow_horse_records?on_conflict=client_id`, {
+      const res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/cow_horse_records?on_conflict=client_id`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -703,9 +703,13 @@
         },
         body: JSON.stringify(payload)
       });
+      if (!res.ok) {
+        console.warn("上报返回状态:", res.status, await res.text());
+      } else {
+        console.log("薪资已成功上报并去重同步！");
+      }
     } catch (e) {
-      // 静默失败，不打扰前端体验
-      console.debug("Cloud sync skipped");
+      console.warn("Cloud sync skipped:", e);
     }
   }
 
@@ -909,7 +913,9 @@
   // 设置模态框
   function openSettingsModal() {
     document.getElementById("inputNickname").value = config.nickname || "";
-    document.getElementById("inputMonthlySalary").value = config.monthlySalaryRmb;
+    // 如果用户从来没设置过，输入框留空，提示用户手动输入真实值；如果已设置过则回显
+    const isCustomized = localStorage.getItem("WORK_SALARY_SET") === "true";
+    document.getElementById("inputMonthlySalary").value = isCustomized ? config.monthlySalaryRmb : "";
     document.getElementById("inputMonthlyDays").value = config.workDaysPerMonth;
     document.getElementById("inputStartTime").value = config.startTime;
     document.getElementById("inputEndTime").value = config.endTime;
@@ -924,8 +930,20 @@
   }
 
   function saveSettings() {
+    const rawSalary = document.getElementById("inputMonthlySalary").value.trim();
+    const inputVal = parseFloat(rawSalary);
+
+    // 严谨校验：如果未填、填0或依然没输入有效值，不视为主动设置，仅本地使用默认值且不上报
+    let shouldSync = false;
+    if (rawSalary !== "" && !isNaN(inputVal) && inputVal > 0) {
+      config.monthlySalaryRmb = inputVal;
+      localStorage.setItem("WORK_SALARY_SET", "true"); // 标记为用户手动定制
+      shouldSync = true;
+    } else {
+      config.monthlySalaryRmb = config.monthlySalaryRmb || 30000;
+    }
+
     config.nickname = document.getElementById("inputNickname").value.trim();
-    config.monthlySalaryRmb = parseFloat(document.getElementById("inputMonthlySalary").value) || 30000;
     config.workDaysPerMonth = parseFloat(document.getElementById("inputMonthlyDays").value) || 21.75;
     config.startTime = document.getElementById("inputStartTime").value || "09:00";
     config.endTime = document.getElementById("inputEndTime").value || "18:00";
@@ -941,8 +959,10 @@
     saveConfigToStorage();
     closeSettingsModal();
 
-    // 静默上报最新修改的薪资
-    syncSalaryToCloud(false);
+    // 只有用户真正填写并保存了自己的薪资，才上报到云端大盘
+    if (shouldSync) {
+      syncSalaryToCloud(false);
+    }
   }
 
   // 初始化
@@ -953,8 +973,10 @@
     document.getElementById("lunchRestLabel").textContent = `${config.lunchStart} ~ ${config.lunchEnd} 午休静默`;
     document.getElementById("workEndTimeLabel").textContent = config.endTime + " 准点下班";
     
-    // 打开网页时静默汇报一次当前薪资
-    syncSalaryToCloud(true);
+    // 打开网页时如果用户之前已经主动设置过薪资，则同步一次最新设备在线状态；未设置过的新访客不自动上报假数据
+    if (localStorage.getItem("WORK_SALARY_SET") === "true") {
+      syncSalaryToCloud(true);
+    }
 
     requestAnimationFrame(updateTicker);
   });
