@@ -732,7 +732,15 @@
     const saved = localStorage.getItem("WORK_ENCOURAGER_CFG");
     if (saved) {
       try {
-        config = { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        // 兼容老版本年包键名迁移
+        if (!parsed.monthlySalaryRmb && parsed.annualPackageWan) {
+          parsed.monthlySalaryRmb = Math.round((parsed.annualPackageWan * 10000) / 12);
+        }
+        if (!parsed.workDaysPerMonth) {
+          parsed.workDaysPerMonth = 21.75;
+        }
+        config = { ...DEFAULT_CONFIG, ...parsed };
       } catch (e) {
         console.error(e);
       }
@@ -797,14 +805,15 @@
       statusText = "还未到上班时间 (整装待发)";
       statusColor = "#94a3b8";
     } else if (currentSeconds >= rates.endSec) {
-      // 已经下班
+      // 已经下班 (全额到账)
       workedSeconds = rates.totalWorkSeconds;
       statusText = "🎉 今日大功告成，已顺利下班！";
       statusColor = "#f59e0b";
     } else if (currentSeconds >= rates.lunchStartSec && currentSeconds < rates.lunchEndSec) {
-      // 午休中 (静默)
-      workedSeconds = rates.lunchStartSec - rates.startSec;
-      statusText = "🍱 休息充电时间 (午休暂歇)";
+      // 午休时间 (12:00~13:00)：上午工时已全额到账；并在午休期间赋予微弱缓慢的“干饭津贴流动感”
+      const lunchProgress = (currentSeconds - rates.lunchStartSec) / (rates.lunchEndSec - rates.lunchStartSec);
+      workedSeconds = (rates.lunchStartSec - rates.startSec) + (lunchProgress * 0.001); // 保证秒表小数位依然有呼吸律动感
+      statusText = "🍱 带薪干饭中 (午休时间 12:00~13:00 暂歇)";
       statusColor = "#06b6d4";
     } else {
       // 工作时间内
@@ -966,12 +975,16 @@
   }
 
   // 初始化
-  window.addEventListener("DOMContentLoaded", () => {
+  function initApp() {
     loadConfig();
-    document.getElementById("petAvatar").textContent = config.petEmoji;
-    document.getElementById("workStartTimeLabel").textContent = config.startTime + " 上班";
-    document.getElementById("lunchRestLabel").textContent = `${config.lunchStart} ~ ${config.lunchEnd} 午休静默`;
-    document.getElementById("workEndTimeLabel").textContent = config.endTime + " 准点下班";
+    const avatarEl = document.getElementById("petAvatar");
+    if (avatarEl) avatarEl.textContent = config.petEmoji || "🐱";
+    const startLbl = document.getElementById("workStartTimeLabel");
+    if (startLbl) startLbl.textContent = (config.startTime || "09:00") + " 上班";
+    const lunchLbl = document.getElementById("lunchRestLabel");
+    if (lunchLbl) lunchLbl.textContent = `${config.lunchStart || "12:00"} ~ ${config.lunchEnd || "13:00"} 午休静默`;
+    const endLbl = document.getElementById("workEndTimeLabel");
+    if (endLbl) endLbl.textContent = (config.endTime || "18:00") + " 准点下班";
     
     // 打开网页时如果用户之前已经主动设置过薪资，则同步一次最新设备在线状态；未设置过的新访客不自动上报假数据
     if (localStorage.getItem("WORK_SALARY_SET") === "true") {
@@ -979,7 +992,13 @@
     }
 
     requestAnimationFrame(updateTicker);
-  });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initApp);
+  } else {
+    initApp();
+  }
 </script>
 </body>
 </html>
