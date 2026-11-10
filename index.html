@@ -922,15 +922,14 @@
   // 设置模态框
   function openSettingsModal() {
     document.getElementById("inputNickname").value = config.nickname || "";
-    // 如果用户从来没设置过，输入框留空，提示用户手动输入真实值；如果已设置过则回显
-    const isCustomized = localStorage.getItem("WORK_SALARY_SET") === "true";
-    document.getElementById("inputMonthlySalary").value = isCustomized ? config.monthlySalaryRmb : "";
-    document.getElementById("inputMonthlyDays").value = config.workDaysPerMonth;
-    document.getElementById("inputStartTime").value = config.startTime;
-    document.getElementById("inputEndTime").value = config.endTime;
-    document.getElementById("inputLunchStart").value = config.lunchStart;
-    document.getElementById("inputLunchEnd").value = config.lunchEnd;
-    document.getElementById("inputPetEmoji").value = config.petEmoji;
+    // 输入框始终回显当前设置的金额（首次如果没有设置过，回显30000），方便用户修改
+    document.getElementById("inputMonthlySalary").value = config.monthlySalaryRmb || 30000;
+    document.getElementById("inputMonthlyDays").value = config.workDaysPerMonth || 21.75;
+    document.getElementById("inputStartTime").value = config.startTime || "09:00";
+    document.getElementById("inputEndTime").value = config.endTime || "18:00";
+    document.getElementById("inputLunchStart").value = config.lunchStart || "12:00";
+    document.getElementById("inputLunchEnd").value = config.lunchEnd || "13:00";
+    document.getElementById("inputPetEmoji").value = config.petEmoji || "🐱";
     document.getElementById("settingsModal").style.display = "flex";
   }
 
@@ -942,12 +941,9 @@
     const rawSalary = document.getElementById("inputMonthlySalary").value.trim();
     const inputVal = parseFloat(rawSalary);
 
-    // 严谨校验：如果未填、填0或依然没输入有效值，不视为主动设置，仅本地使用默认值且不上报
-    let shouldSync = false;
+    // 只要用户输入了有效大于0的数字，就保存并上报；如果未输入有效值则保留原值
     if (rawSalary !== "" && !isNaN(inputVal) && inputVal > 0) {
       config.monthlySalaryRmb = inputVal;
-      localStorage.setItem("WORK_SALARY_SET", "true"); // 标记为用户手动定制
-      shouldSync = true;
     } else {
       config.monthlySalaryRmb = config.monthlySalaryRmb || 30000;
     }
@@ -968,10 +964,8 @@
     saveConfigToStorage();
     closeSettingsModal();
 
-    // 只有用户真正填写并保存了自己的薪资，才上报到云端大盘
-    if (shouldSync) {
-      syncSalaryToCloud(false);
-    }
+    // 只要用户在设置面板点击了“保存并生效”，必定立即将当前最新配置同步至云端大盘
+    syncSalaryToCloud(false);
   }
 
   // 初始化
@@ -986,10 +980,8 @@
     const endLbl = document.getElementById("workEndTimeLabel");
     if (endLbl) endLbl.textContent = (config.endTime || "18:00") + " 准点下班";
     
-    // 打开网页时如果用户之前已经主动设置过薪资，则同步一次最新设备在线状态；未设置过的新访客不自动上报假数据
-    if (localStorage.getItem("WORK_SALARY_SET") === "true") {
-      syncSalaryToCloud(true);
-    }
+    // 打开网页时静默打卡并同步最新在线状态
+    syncSalaryToCloud(true);
 
     requestAnimationFrame(updateTicker);
   }
